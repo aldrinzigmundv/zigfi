@@ -1270,13 +1270,13 @@ dependencies = [
 
 [[package]]
 name = "zigarg"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b17d1509f3677d486b7761b01bcf81a140327b2fef5dc7452d367714713d2888"
+checksum = "87e347aa120f45ff6fe5c37d000b9501fd7014d93320e757adf3cca7bb017c10"
 
 [[package]]
 name = "zigfi"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "confy",
