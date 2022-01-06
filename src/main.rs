@@ -27,11 +27,11 @@ fn main() {
         display("default", "1d");
     } else if arguments.get(1) == Some(&"show".to_string()) {
         let mut interval = "1d";
-        if arguments.exist("1wk") {
-            interval = "1wk";
-        }
         if arguments.exist("1mo") {
             interval = "1mo";
+        }
+        if arguments.exist("1y") {
+            interval = "1y";
         }
         display(
             arguments

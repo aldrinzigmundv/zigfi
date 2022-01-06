@@ -301,7 +301,7 @@ pub fn help() {
         "Commands",
         "zigarg (shows \"default\" watchlist)",
         "zigarg new <watchlist name> <optional: ticker/s>",
-        "zigarg show <watchlist name>",
+        "zigarg show <watchlist name> <optional: interval> (interval can be \"1d\", \"1mo\" or \"1y\")",
         "zigarg delete <watchlist name>",
         "zigarg add <watchlist name> <ticker/s>",
         "zigarg remove <watchlist name> <ticker/s>",

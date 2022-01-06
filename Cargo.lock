@@ -1276,7 +1276,7 @@ checksum = "87e347aa120f45ff6fe5c37d000b9501fd7014d93320e757adf3cca7bb017c10"
 
 [[package]]
 name = "zigfi"
-version = "1.0.0"
+version = "1.5.0"
 dependencies = [
  "chrono",
  "confy",
