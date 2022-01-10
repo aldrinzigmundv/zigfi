@@ -6,3 +6,7 @@ SI=F 22.39 -0.04%
 {"ticker":"BTC-USD","price":41983.05,"difference":0.6%}
 {"ticker":"GC=F","price":1795,"difference":0%}
 {"ticker":"SI=F","price":22.37,"difference":0%}
+XMR-USD 192.87 4.5%
+BTC-USD 41903.18 0.4%
+GC=F 1797.1 0%
+SI=F 22.44 0%

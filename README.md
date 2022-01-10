@@ -30,4 +30,4 @@ zigfi help
 
 Releases are on Github at the right side of the repo.
 
-You can visit my website at `aldrinzigmund.com`. Donations are also welcome there via Monero, if you want to support me really work on the app further.
+You can visit my website at `aldrinzigmund.com`. Donations are also welcome via Monero, if you want to support me work on the app further: 86cQoPfKTJ2bRfGH5Ts2kzaXCRcVRiX8CUHKc9xmeUmQ8YM8Uzk9S97T5gQaqYu58C9wuFK7opDH7cM9EJyR4V5LAq9RGv4
