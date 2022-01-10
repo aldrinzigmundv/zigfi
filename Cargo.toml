@@ -1,7 +1,7 @@
 [package]
 name = "zigfi"
 description = "zigfi is an open-source stocks, commodities and cryptocurrencies price monitoring CLI app, written fully in Rust, where you can organize assets you're watching easily into watchlists."
-version = "1.5.0"
+version = "2.0.0"
 authors = ["Aldrin Zigmund Cortez Velasco <aldrinzigmund@tutamail.com>"]
 license = "AGPL-3.0-or-later"
 edition = "2021"
@@ -21,6 +21,7 @@ serde = { version = "1.0.132", features = ["derive"] }
 crossterm = "0.22.1"
 yahoo_finance_api = "1.2.2"
 chrono = "0.4.19"
+atty = "0.2.14"
 
 [package.metadata.rpm]
 package = "zigfi"

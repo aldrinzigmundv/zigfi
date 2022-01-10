@@ -1,31 +1,35 @@
 #![forbid(unsafe_code)]
 
+use atty::Stream;
 use zigarg::Arguments;
-use zigfi::{self, add, colorswap, delete, display, help, list, new, remove, search, startup};
+use zigfi::{
+    self, add, colorswap, delete, display, help, list, new, print, print_json, remove, search,
+    startup,
+};
 
-mod terminal;
+mod output;
 
 fn main() {
-    //Makes panic! reset terminal back from Alternate Screen first before crashing for cleaner error message
+    ///Makes panic! reset output back from Alternate Screen first before crashing for cleaner error message
     let default_panic = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        terminal::cleanup();
+        output::cleanup();
         default_panic(info);
     }));
 
-    //Captures arguments using zigarg crate
+    ///Captures arguments using zigarg crate
     let arguments = Arguments::new();
 
-    //Sets up default configuration if not available
+    ///Sets up default configuration if not available
     startup();
 
-    //Sets up terminal (Alternate Screen)
-    terminal::setup();
+    ///Variable to suppress cleanup on output if requester is not tty preventing ANSI escapes from being piped
+    let mut clean_up_required = true;
 
     //Processes arguments and executes request
     if !arguments.has_args() {
         display("default", "1d");
-    } else if arguments.get(1) == Some(&"show".to_string()) {
+    } else if arguments.exist("show") && atty::is(Stream::Stdout) {
         let mut interval = "1d";
         if arguments.exist("1mo") {
             interval = "1mo";
@@ -34,6 +38,36 @@ fn main() {
             interval = "1y";
         }
         display(
+            arguments
+                .get_value("show")
+                .expect("Something wrong with arguments. Please, double check."),
+            interval,
+        );
+    } else if arguments.exist("show") && arguments.exist("--json") {
+        clean_up_required = false;
+        let mut interval = "1d";
+        if arguments.exist("1mo") {
+            interval = "1mo";
+        }
+        if arguments.exist("1y") {
+            interval = "1y";
+        }
+        print_json(
+            arguments
+                .get_value("show")
+                .expect("Something wrong with arguments. Please, double check."),
+            interval,
+        );
+    } else if arguments.exist("show") {
+        clean_up_required = false;
+        let mut interval = "1d";
+        if arguments.exist("1mo") {
+            interval = "1mo";
+        }
+        if arguments.exist("1y") {
+            interval = "1y";
+        }
+        print(
             arguments
                 .get_value("show")
                 .expect("Something wrong with arguments. Please, double check."),
@@ -79,11 +113,13 @@ fn main() {
     } else if arguments.exist("colorswap") {
         colorswap();
     } else {
-        terminal::write_then_nextline("Command not found.");
-        terminal::skip_line();
+        output::write_then_nextline("Command not found.");
+        output::skip_line();
         help();
     }
 
-    //Resets terminal back from Alternate Screen before Exit
-    terminal::cleanup();
+    //Resets output back from Alternate Screen before Exit
+    if clean_up_required {
+        output::cleanup();
+    }
 }

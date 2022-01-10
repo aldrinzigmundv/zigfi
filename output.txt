@@ -1,0 +1,8 @@
+XMR-USD 191.53 -1.55%
+BTC-USD 42074.89 1.24%
+GC=F 1796.5 -0.03%
+SI=F 22.39 -0.04%
+{"ticker":"XMR-USD","price":192.54,"difference":4.33%}
+{"ticker":"BTC-USD","price":41983.05,"difference":0.6%}
+{"ticker":"GC=F","price":1795,"difference":0%}
+{"ticker":"SI=F","price":22.37,"difference":0%}

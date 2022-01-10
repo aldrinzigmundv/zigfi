@@ -14,17 +14,19 @@ The app gets its data from the Yahoo Finance API.
 ## Quickstart
 Here are the things you can do:
 ```
-zigarg (shows "default" watchlist)
-zigarg new <watchlist name> <optional: ticker/s>
-zigarg show <watchlist name> <optional: interval> (interval can be "1d", "1mo" or "1y")
-zigarg delete <watchlist name>
-zigarg add <watchlist name> <ticker/s>
-zigarg remove <watchlist name> <ticker/s>
-zigarg search <name of asset>
-zigarg list (lists saved watchlist/s)
-zigarg colorswap (swaps Green and Red for some East Asian users)
-zigarg help
+zigfi (shows "default" watchlist)
+zigfi new <watchlist name> <optional: ticker/s>
+zigfi show <watchlist name> <optional: interval> (interval can be "1d", "1mo" or "1y")
+zigfi delete <watchlist name>
+zigfi add <watchlist name> <ticker/s>
+zigfi remove <watchlist name> <ticker/s>
+zigfi search <name of asset>
+zigfi list (lists saved watchlist/s)
+zigfi colorswap (swaps Green and Red for some East Asian users)
+zigfi help
 ```
+
+`zigfi show` also supports piping. Default output is string. Add `--json` flag for JSON.
 
 Releases are on Github at the right side of the repo.
 

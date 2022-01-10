@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 #[allow(dead_code)]
-
 use std::io::{stdout, Write};
 
 use crossterm::{
@@ -9,6 +8,7 @@ use crossterm::{
     terminal, ExecutableCommand,
 };
 
+///Sets up terminal Alternate Screen
 pub fn setup() {
     stdout()
         .execute(terminal::EnterAlternateScreen)
@@ -22,6 +22,7 @@ pub fn setup() {
     stdout().flush().expect("Terminal error.");
 }
 
+///Writes text to the screen
 pub fn write(text: &str) {
     stdout()
         .write(text.to_string().as_bytes())
@@ -29,6 +30,7 @@ pub fn write(text: &str) {
     stdout().flush().expect("Terminal error.");
 }
 
+///Writes text to the screen then moves cursor to next line
 pub fn write_then_nextline(text: &str) {
     stdout()
         .write(text.to_string().as_bytes())
@@ -39,6 +41,7 @@ pub fn write_then_nextline(text: &str) {
     stdout().flush().expect("Terminal error.");
 }
 
+///Writes text to the screen and makes sure it occupies the entire space provided
 pub fn write_within_space(text: &str, space: u16) {
     stdout()
         .write(text.to_string().as_bytes())
@@ -51,6 +54,7 @@ pub fn write_within_space(text: &str, space: u16) {
     stdout().flush().expect("Terminal error.");
 }
 
+///Writes an array of text to the screen
 pub fn write_multiline(texts: Vec<&str>) {
     for text in texts {
         write_then_nextline(text);
@@ -58,6 +62,7 @@ pub fn write_multiline(texts: Vec<&str>) {
     stdout().flush().expect("Terminal error.");
 }
 
+///Moves cursor to next line
 pub fn skip_line() {
     stdout()
         .execute(MoveToNextLine(1))
@@ -65,6 +70,7 @@ pub fn skip_line() {
     stdout().flush().expect("Terminal error.");
 }
 
+///Sets text color
 pub fn set_color(color: Color) {
     stdout()
         .execute(SetForegroundColor(color))
@@ -72,6 +78,7 @@ pub fn set_color(color: Color) {
     stdout().flush().expect("Terminal error.");
 }
 
+///Resets text color
 pub fn reset_color() {
     stdout()
         .execute(SetForegroundColor(Color::Reset))
@@ -79,10 +86,12 @@ pub fn reset_color() {
     stdout().flush().expect("Terminal error.");
 }
 
+///Moves cursor to top left
 pub fn reset_cursor() {
     stdout().execute(MoveTo(0, 0)).expect("Terminal error.");
 }
 
+///Reverts screen from Alternate Screen
 pub fn cleanup() {
     terminal::disable_raw_mode().unwrap();
     stdout().execute(terminal::LeaveAlternateScreen).unwrap();

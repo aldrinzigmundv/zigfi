@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 
-use chrono;
 use confy;
 use crossterm::{
     event::{poll, read, Event, KeyCode},
@@ -8,20 +7,19 @@ use crossterm::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::Duration, vec};
-use tokio::runtime::Runtime;
-use yahoo_finance_api as yahoo;
 
 mod format;
-mod terminal;
+mod output;
+mod yahoo;
 
-//zigfi configuration structure
+///zigfi configuration structure
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     greenisup: bool,
     watchlists: HashMap<String, Vec<String>>,
 }
 
-//Required for Config structs in confy crate
+///Required for Config structs in confy crate
 impl ::std::default::Default for Config {
     fn default() -> Self {
         Self {
@@ -31,7 +29,7 @@ impl ::std::default::Default for Config {
     }
 }
 
-//Sets up default configuration if not available
+///Sets up default configuration if not available
 pub fn startup() {
     let mut cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
     if cfg.watchlists.contains_key("default") {
@@ -49,79 +47,47 @@ pub fn startup() {
     }
 }
 
-//Displays watchlist
+///Displays watchlist on the terminal
 pub fn display(query: &str, interval: &str) {
+    output::setup();
     let cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
-    let rt = Runtime::new().expect("Failed to start Runtime");
-    let yahoo = yahoo::YahooConnector::new();
     let watchlist = cfg
         .watchlists
         .get(query)
         .expect("Failed to load watchlist.");
     if watchlist.is_empty() {
-        terminal::write("Watchlist is empty. Press q to quit.");
+        output::write("Watchlist is empty. Press q to quit.");
         let mut event = read().expect("Terminal error.");
         while event != Event::Key(KeyCode::Char('q').into()) {
             event = read().expect("Terminal error.");
         }
     } else {
-        let now = chrono::Utc::now();
-        let mut back = chrono::Duration::days(2);
-        if interval.eq_ignore_ascii_case("1mo") {
-            back = chrono::Duration::weeks(4);
-        } else if interval.eq_ignore_ascii_case("1y") {
-            back = chrono::Duration::weeks(52);
-        }
+        let (from, to) = format::get_time(interval);
         'outer: loop {
             for ticker in watchlist.iter() {
-                let response = rt
-                    .block_on(yahoo.get_quote_history(ticker, now - back, now))
-                    .expect("Yahoo Finance request failed. Invalid ticker on the watchlist?");
-                let quote = response
-                    .quotes()
-                    .expect("Failed to process Yahoo Finance Response.");
-                let difference = format::reduc(format::prcnt(
-                    quote
-                        .last()
-                        .expect("Failed to process Yahoo Finance Response.")
-                        .close,
-                    quote
-                        .get(0)
-                        .expect("Failed to process Yahoo Finance Response.")
-                        .close,
-                ));
-                terminal::write_within_space(ticker, 10);
-                terminal::set_color(Color::Yellow);
-                terminal::write_within_space(
-                    format::reduc(
-                        quote
-                            .last()
-                            .expect("Failed to process Yahoo Finance Response.")
-                            .close,
-                    )
-                    .to_string()
-                    .as_ref(),
-                    20,
-                );
-                terminal::reset_color();
+                let (quote, difference) = yahoo::get(ticker, from, to);
+                output::write_within_space(ticker, 10);
+                output::set_color(Color::Yellow);
+                output::write_within_space(quote.to_string().as_ref(), 20);
+                output::reset_color();
                 if difference.is_sign_positive() && cfg.greenisup {
-                    terminal::set_color(Color::Green);
+                    output::set_color(Color::Green);
                 } else if difference.is_sign_negative() && cfg.greenisup {
-                    terminal::set_color(Color::Red);
+                    output::set_color(Color::Red);
                 } else if difference.is_sign_positive() && !cfg.greenisup {
-                    terminal::set_color(Color::Red);
+                    output::set_color(Color::Red);
                 } else {
-                    terminal::set_color(Color::Green);
+                    output::set_color(Color::Green);
                 }
-                terminal::write(difference.to_string().as_ref());
-                terminal::write("%");
-                terminal::write("   ");
-                terminal::reset_color();
-                terminal::skip_line();
+                output::write(difference.to_string().as_ref());
+                output::write("%");
+                output::write("   ");
+                output::reset_color();
+                output::skip_line();
             }
-            terminal::skip_line();
-            terminal::write("Press q to quit.");
-            terminal::reset_cursor();
+            output::skip_line();
+            output::write("Press q to quit.");
+            output::reset_cursor();
             if poll(Duration::from_millis(500)).expect("Terminal error.") {
                 let event = read().expect("Terminal error.");
                 if event == Event::Key(KeyCode::Char('q').into()) {
@@ -132,24 +98,67 @@ pub fn display(query: &str, interval: &str) {
     }
 }
 
-//Shows search results for provided query
+///Prints watchlist as text for piping
+pub fn print(query: &str, interval: &str) {
+    let cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
+    let watchlist = cfg
+        .watchlists
+        .get(query)
+        .expect("Failed to load watchlist.");
+    if watchlist.is_empty() {
+        panic!("Watchlist empty");
+    } else {
+        let (from, to) = format::get_time(interval);
+        for ticker in watchlist.iter() {
+            let (quote, difference) = yahoo::get(ticker, from, to);
+            println!(
+                "{} {} {}%",
+                ticker,
+                quote.to_string(),
+                difference.to_string()
+            );
+        }
+    }
+}
+
+///Prints watchlist as json for piping
+pub fn print_json(query: &str, interval: &str) {
+    let cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
+    let watchlist = cfg
+        .watchlists
+        .get(query)
+        .expect("Failed to load watchlist.");
+    if watchlist.is_empty() {
+        panic!("Watchlist empty");
+    } else {
+        let (from, to) = format::get_time(interval);
+        for ticker in watchlist.iter() {
+            let (quote, difference) = yahoo::get(ticker, from, to);
+            println!(
+                "{{\"ticker\":\"{}\",\"price\":{},\"difference\":{}%}}",
+                ticker,
+                quote.to_string(),
+                difference.to_string()
+            );
+        }
+    }
+}
+
+///Shows search results for provided query
 pub fn search(query: &str) {
-    let rt = Runtime::new().expect("Failed to start Runtime");
-    let yahoo = yahoo::YahooConnector::new();
-    let resp = rt
-        .block_on(yahoo.search_ticker(query))
-        .expect("Failed to process Yahoo Finance Response.");
+    output::setup();
+    let resp = yahoo::search(query);
     let mut captured = false;
     loop {
         if captured == false {
             for item in &resp.quotes {
-                terminal::write_within_space(item.symbol.as_ref(), 18);
-                terminal::write_then_nextline(item.short_name.as_ref());
+                output::write_within_space(item.symbol.as_ref(), 18);
+                output::write_then_nextline(item.short_name.as_ref());
             }
             captured = true;
         }
-        terminal::skip_line();
-        terminal::write("Search results displayed. Press q to quit.");
+        output::skip_line();
+        output::write("Search results displayed. Press q to quit.");
         let event = read().expect("Terminal error.");
         if event == Event::Key(KeyCode::Char('q').into()) {
             break;
@@ -157,12 +166,13 @@ pub fn search(query: &str) {
     }
 }
 
-//Creates a new watchlist
+///Creates a new watchlist
 pub fn new(watchlist: &str, tickers: Vec<String>) {
+    output::setup();
     let cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
     if cfg.watchlists.contains_key(watchlist) {
-        terminal::write_then_nextline("Watchlist provided already exist and will be overwritten.");
-        terminal::write_then_nextline("Do you wish to continue? (y/n)");
+        output::write_then_nextline("Watchlist provided already exist and will be overwritten.");
+        output::write_then_nextline("Do you wish to continue? (y/n)");
         loop {
             let event = read().expect("Terminal error.");
             if event == Event::Key(KeyCode::Char('y').into()) {
@@ -177,26 +187,23 @@ pub fn new(watchlist: &str, tickers: Vec<String>) {
     }
 }
 
-//Continues creating new watchlist once duplicate has been cleared if there'll be at new()
+///Continues creating new watchlist once duplicate has been cleared if there'll be at new()
 fn new_continuation(mut cfg: Config, watchlist: &str, tickers: Vec<String>) {
-    let rt = Runtime::new().expect("Failed to start Runtime");
-    let yahoo = yahoo::YahooConnector::new();
+    let (from, now) = format::get_time("1d");
     loop {
         let mut verified_tickers: Vec<String> = vec![];
         for ticker in tickers.iter() {
-            let _ = rt
-                .block_on(yahoo.get_latest_quotes(ticker, "1d"))
-                .expect("Yahoo Finance request failed. Invalid ticker on the watchlist?");
+            let _ = yahoo::get(ticker, from, now);
             verified_tickers.push(ticker.to_string());
         }
         if verified_tickers.is_empty() {
             cfg.watchlists.insert(watchlist.to_string(), vec![]);
             confy::store("zigfi", cfg).expect("Failed to save.");
-            terminal::write_then_nextline("Empty watchlist created");
-            terminal::write("Press q to quit...");
+            output::write_then_nextline("Empty watchlist created");
+            output::write("Press q to quit...");
         } else {
-            terminal::write_then_nextline("Watchlist created");
-            terminal::write("Press q to quit...");
+            output::write_then_nextline("Watchlist created");
+            output::write("Press q to quit...");
             cfg.watchlists
                 .insert(watchlist.to_string(), verified_tickers);
             confy::store("zigfi", cfg).expect("Terminal error.");
@@ -209,16 +216,14 @@ fn new_continuation(mut cfg: Config, watchlist: &str, tickers: Vec<String>) {
     }
 }
 
-//Adds ticker/s to watchlist
+///Adds ticker/s to watchlist
 pub fn add(watchlist: &str, tickers: Vec<String>) {
+    output::setup();
     let mut cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
-    let rt = Runtime::new().expect("Failed to start Runtime");
-    let yahoo = yahoo::YahooConnector::new();
+    let (from, now) = format::get_time("1d");
     let mut verified_tickers: Vec<String> = vec![];
     for ticker in tickers.iter() {
-        let _ = rt
-            .block_on(yahoo.get_latest_quotes(ticker, "1d"))
-            .expect("Yahoo Finance request failed. Invalid ticker on the watchlist?");
+        let _ = yahoo::get(ticker, from, now);
         verified_tickers.push(ticker.to_string());
     }
     let mut clone = cfg
@@ -231,61 +236,53 @@ pub fn add(watchlist: &str, tickers: Vec<String>) {
     }
     cfg.watchlists.insert(watchlist.to_string(), clone);
     confy::store("zigfi", cfg).expect("Failed to save.");
-    terminal::write_then_nextline("Ticker/s has been added to the watchlist.");
-    terminal::write("Press q to quit...");
+    output::write_then_nextline("Ticker/s has been added to the watchlist.");
+    output::write("Press q to quit...");
     let mut event = read().expect("Terminal error.");
     while event != Event::Key(KeyCode::Char('q').into()) {
         event = read().expect("Terminal error.");
     }
 }
 
-//Removes ticker/s to watchlist
+///Removes ticker/s to watchlist
 pub fn remove(watchlist: &str, tickers: Vec<String>) {
-    let mut cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
-    let mut clone = cfg
-        .watchlists
-        .get(watchlist)
-        .expect("Failed to load watchlist.")
-        .clone();
-    let mut for_removal: Vec<usize> = vec![];
-    for ticker in tickers.iter() {
-        let index = cfg
-            .watchlists
-            .get(watchlist)
-            .expect("Failed to load watchlist.")
-            .iter()
-            .position(|x| x == ticker)
-            .expect("Failed to find ticker/s. Invalid ticker/s?");
-        for_removal.push(index);
-    }
-    for index in for_removal {
-        clone.remove(index);
-    }
-    cfg.watchlists.insert(watchlist.to_string(), clone);
-    confy::store("zigfi", cfg).expect("Failed to save.");
-    terminal::write_then_nextline("Ticker/s has been removed from the watchlist.");
-    terminal::write("Press q to quit...");
-    let mut event = read().expect("Terminal error.");
-    while event != Event::Key(KeyCode::Char('q').into()) {
-        event = read().expect("Terminal error.");
-    }
-}
-
-//Deletes watchlist
-pub fn delete(query: &str) {
-    let mut cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
-    if cfg.watchlists.contains_key(query) {
-        cfg.watchlists.remove(query);
-        confy::store("zigfi", cfg).expect("Failed to save.");
-        terminal::write_then_nextline("Watchlist has been deleted.");
-        terminal::write("Press q to quit...");
+    output::setup();
+    if tickers.is_empty() {
+        output::write_then_nextline("You did not provide any ticker.");
+        output::skip_line();
+        output::write_then_nextline("Use delete to delete a watchlist.");
+        output::write_then_nextline("Use remove to remove ticker/s from a watchlist.");
+        output::skip_line();
+        output::write("Operation aborted. Press q to quit...");
         let mut event = read().expect("Terminal error.");
         while event != Event::Key(KeyCode::Char('q').into()) {
             event = read().expect("Terminal error.");
         }
     } else {
-        terminal::write_then_nextline("Watchlist does not exist.");
-        terminal::write("Press q to quit...");
+        let mut cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
+        let mut clone = cfg
+            .watchlists
+            .get(watchlist)
+            .expect("Failed to load watchlist.")
+            .clone();
+        let mut for_removal: Vec<usize> = vec![];
+        for ticker in tickers.iter() {
+            let index = cfg
+                .watchlists
+                .get(watchlist)
+                .expect("Failed to load watchlist.")
+                .iter()
+                .position(|x| x == ticker)
+                .expect("Failed to find ticker/s. Invalid ticker/s?");
+            for_removal.push(index);
+        }
+        for index in for_removal {
+            clone.remove(index);
+        }
+        cfg.watchlists.insert(watchlist.to_string(), clone);
+        confy::store("zigfi", cfg).expect("Failed to save.");
+        output::write_then_nextline("Ticker/s has been removed from the watchlist.");
+        output::write("Press q to quit...");
         let mut event = read().expect("Terminal error.");
         while event != Event::Key(KeyCode::Char('q').into()) {
             event = read().expect("Terminal error.");
@@ -293,50 +290,79 @@ pub fn delete(query: &str) {
     }
 }
 
-//Displays commands available
+///Deletes an existing watchlist
+pub fn delete(query: &str) {
+    output::setup();
+    let mut cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
+    if cfg.watchlists.contains_key(query) {
+        cfg.watchlists.remove(query);
+        confy::store("zigfi", cfg).expect("Failed to save.");
+        output::write_then_nextline("Watchlist has been deleted.");
+        output::write("Press q to quit...");
+        let mut event = read().expect("Terminal error.");
+        while event != Event::Key(KeyCode::Char('q').into()) {
+            event = read().expect("Terminal error.");
+        }
+    } else {
+        output::write_then_nextline("Watchlist does not exist.");
+        output::write("Press q to quit...");
+        let mut event = read().expect("Terminal error.");
+        while event != Event::Key(KeyCode::Char('q').into()) {
+            event = read().expect("Terminal error.");
+        }
+    }
+}
+
+///Displays commands available
 pub fn help() {
+    output::setup();
     let help = vec![
-        "zigarg - List of Commands",
+        "zigfi - List of Commands",
         "",
         "Commands",
-        "zigarg (shows \"default\" watchlist)",
-        "zigarg new <watchlist name> <optional: ticker/s>",
-        "zigarg show <watchlist name> <optional: interval> (interval can be \"1d\", \"1mo\" or \"1y\")",
-        "zigarg delete <watchlist name>",
-        "zigarg add <watchlist name> <ticker/s>",
-        "zigarg remove <watchlist name> <ticker/s>",
-        "zigarg search <name of asset>",
-        "zigarg list (lists saved watchlist/s)",
-        "zigarg colorswap (swaps Green and Red for some East Asian users)",
-        "zigarg help",
+        "zigfi (shows \"default\" watchlist)",
+        "zigfi new <watchlist name> <optional: ticker/s>",
+        "zigfi show <watchlist name> <optional: interval> (interval can be \"1d\", \"1mo\" or \"1y\")",
+        "zigfi delete <watchlist name>",
+        "zigfi add <watchlist name> <ticker/s>",
+        "zigfi remove <watchlist name> <ticker/s>",
+        "zigfi search <name of asset>",
+        "zigfi list (lists saved watchlist/s)",
+        "zigfi colorswap (swaps Green and Red for some East Asian users)",
+        "zigfi help",
+        "",
+        "\"zigfi show\" supports piping. Default output is string. Add \"--json\" for JSON.",
         "",
         "Developed by Aldrin Zigmund Cortez Velasco",
         "",
         "Press q to quit...",
     ];
-    terminal::write_multiline(help);
+    output::write_multiline(help);
     let mut event = read().expect("Terminal error.");
     while event != Event::Key(KeyCode::Char('q').into()) {
         event = read().expect("Terminal error.");
     }
 }
 
-//Lists watchlists
+///Lists watchlists
 pub fn list() {
+    output::setup();
     let cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
     for watchlist in cfg.watchlists.keys() {
-        terminal::write_then_nextline(watchlist);
+        output::write_then_nextline(watchlist);
     }
-    terminal::skip_line();
-    terminal::write_then_nextline("Existing watchlist/s displayed.");
-    terminal::write("Press q to quit...");
+    output::skip_line();
+    output::write_then_nextline("Existing watchlist/s displayed.");
+    output::write("Press q to quit...");
     let mut event = read().expect("Terminal error.");
     while event != Event::Key(KeyCode::Char('q').into()) {
         event = read().expect("Terminal error.");
     }
 }
 
+///Swaps red and green for some East Asian users
 pub fn colorswap() {
+    output::setup();
     let mut cfg: Config = confy::load("zigfi").expect("Failed to load zigfi configuration.");
     if cfg.greenisup {
         cfg.greenisup = false;
@@ -344,7 +370,7 @@ pub fn colorswap() {
         cfg.greenisup = true;
     }
     confy::store("zigfi", cfg).expect("Failed to save new configuration.");
-    terminal::write("Green and red swapped. Press q to quit...");
+    output::write("Green and red swapped. Press q to quit...");
     let mut event = read().expect("Terminal error.");
     while event != Event::Key(KeyCode::Char('q').into()) {
         event = read().expect("Terminal error.");
