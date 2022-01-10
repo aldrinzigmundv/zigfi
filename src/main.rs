@@ -27,8 +27,12 @@ fn main() {
     let mut clean_up_required = true;
 
     //Processes arguments and executes request
-    if !arguments.has_args() {
+    if !arguments.has_args() && atty::is(Stream::Stdout) {
         display("default", "1d");
+    } else if !arguments.has_args() && !arguments.exist("--json") {
+        print("default", "1d");
+    } else if !arguments.has_args() {
+        print_json("default", "1d");
     } else if arguments.exist("show") && atty::is(Stream::Stdout) {
         let mut interval = "1d";
         if arguments.exist("1mo") {
